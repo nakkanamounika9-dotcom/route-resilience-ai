@@ -127,7 +127,7 @@ function SimulatorPage() {
         </aside>
 
         <main className="flex flex-1 flex-col gap-3 p-3 xl:flex-row">
-          <section className="flex min-h-[420px] flex-1 flex-col">
+          <section className="flex min-h-[420px] flex-1 flex-col xl:min-w-[560px]">
             <div className="panel grid-backdrop relative aspect-[7/5] w-full overflow-hidden">
               <div className="absolute inset-0">
                 <NetworkGraphView
