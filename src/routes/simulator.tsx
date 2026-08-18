@@ -162,12 +162,12 @@ function SimulatorPage() {
                   onNodeClick={(id) => {
                     setSelectedNode(id);
                     setSelectedLink(null);
-                    setSection("failure");
+                    if (!isLocked("failure")) setSection("failure");
                   }}
                   onLinkClick={(id) => {
                     setSelectedLink(id);
                     setSelectedNode(null);
-                    setSection("failure");
+                    if (!isLocked("failure")) setSection("failure");
                   }}
                 />
               </div>
