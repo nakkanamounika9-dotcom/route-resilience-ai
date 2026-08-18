@@ -5,6 +5,8 @@ import {
   BarChart3,
   GitBranch,
   Home,
+  Lock,
+
   ListChecks,
   Network,
   ShieldAlert,
