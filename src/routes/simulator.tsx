@@ -5,6 +5,8 @@ import {
   BarChart3,
   GitBranch,
   Home,
+  Lock,
+
   ListChecks,
   Network,
   ShieldAlert,
@@ -58,6 +60,12 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]["id"];
 
+// Set to true to unlock every section.
+const SECTIONS_UNLOCKED = false;
+const LOCKED_SECTIONS: SectionId[] = ["failure", "health", "performance", "healing"];
+const isLocked = (id: SectionId) => !SECTIONS_UNLOCKED && LOCKED_SECTIONS.includes(id);
+
+
 const LEGEND = [
   ["Healthy", "bg-healthy"],
   ["Warning", "bg-warning"],
@@ -108,21 +116,34 @@ function SimulatorPage() {
       <div className="flex flex-1 flex-col lg:flex-row">
         <aside className="border-b border-border bg-sidebar p-2 lg:w-56 lg:border-r lg:border-b-0">
           <nav className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
-            {SECTIONS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSection(s.id)}
-                className={cn(
-                  "flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors",
-                  section === s.id
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-muted-foreground hover:bg-sidebar-accent/50",
-                )}
-              >
-                <s.icon className="h-3.5 w-3.5" />
-                {s.label}
-              </button>
-            ))}
+            {SECTIONS.map((s) => {
+              const locked = isLocked(s.id);
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => !locked && setSection(s.id)}
+                  aria-disabled={locked}
+                  title={locked ? `${s.label} — locked` : s.label}
+                  className={cn(
+                    "group relative flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-left text-xs transition-colors",
+                    locked
+                      ? "cursor-not-allowed text-muted-foreground/60"
+                      : section === s.id
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-muted-foreground hover:bg-sidebar-accent/50",
+                  )}
+                >
+                  <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                    <s.icon className={cn("h-3.5 w-3.5", locked && "group-hover:opacity-0")} />
+                    {locked && (
+                      <Lock className="absolute h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+                    )}
+                  </span>
+                  {s.label}
+                </button>
+              );
+            })}
+
           </nav>
         </aside>
 
@@ -141,12 +162,12 @@ function SimulatorPage() {
                   onNodeClick={(id) => {
                     setSelectedNode(id);
                     setSelectedLink(null);
-                    setSection("failure");
+                    if (!isLocked("failure")) setSection("failure");
                   }}
                   onLinkClick={(id) => {
                     setSelectedLink(id);
                     setSelectedNode(null);
-                    setSection("failure");
+                    if (!isLocked("failure")) setSection("failure");
                   }}
                 />
               </div>
