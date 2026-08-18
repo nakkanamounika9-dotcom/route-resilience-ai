@@ -58,6 +58,12 @@ const SECTIONS = [
 
 type SectionId = (typeof SECTIONS)[number]["id"];
 
+// Set to true to unlock every section.
+const SECTIONS_UNLOCKED = false;
+const LOCKED_SECTIONS: SectionId[] = ["failure", "health", "performance", "healing"];
+const isLocked = (id: SectionId) => !SECTIONS_UNLOCKED && LOCKED_SECTIONS.includes(id);
+
+
 const LEGEND = [
   ["Healthy", "bg-healthy"],
   ["Warning", "bg-warning"],
