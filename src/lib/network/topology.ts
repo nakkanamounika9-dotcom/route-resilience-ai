@@ -21,6 +21,8 @@ export interface Link {
   reliability: number; // %
   congestion: number; // %
   status: NodeStatus;
+  /** Shared-risk link group (SRLG): links sharing a duct/fiber trunk. */
+  riskGroup?: number;
 }
 
 export interface NetworkGraph {
@@ -80,7 +82,7 @@ export function defaultTopology(): NetworkGraph {
   };
   const nodes = Object.entries(coords).map(([id, [x, y]]) => makeNode(id, x, y));
 
-  const raw: [string, string, number, number][] = [
+  const raw: [string, string, number, number, number?][] = [
     ["R1", "R2", 8, 100],
     ["R1", "R3", 12, 60],
     ["R2", "R4", 10, 80],
@@ -88,17 +90,19 @@ export function defaultTopology(): NetworkGraph {
     ["R3", "R5", 14, 70],
     ["R3", "R6", 9, 90],
     ["R4", "R7", 11, 75],
-    ["R5", "R7", 6, 55],
-    ["R5", "R8", 9, 30],
+    ["R5", "R7", 6, 55, 1],
+    ["R5", "R8", 9, 30, 1],
     ["R6", "R8", 13, 85],
     ["R6", "R9", 10, 65],
     ["R7", "R10", 12, 70],
-    ["R8", "R10", 8, 95],
-    ["R9", "R10", 15, 50],
+    ["R8", "R10", 8, 95, 2],
+    ["R9", "R10", 15, 50, 2],
     ["R4", "R5", 16, 45],
     ["R8", "R9", 7, 60],
   ];
-  const links = raw.map(([a, b, l, bw]) => makeLink(a, b, l, bw));
+  const links = raw.map(([a, b, l, bw, group]) =>
+    makeLink(a, b, l, bw, group == null ? {} : { riskGroup: group }),
+  );
   return { nodes, links };
 }
 

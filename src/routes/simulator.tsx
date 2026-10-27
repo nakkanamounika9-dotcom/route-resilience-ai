@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Activity,
@@ -10,6 +10,7 @@ import {
   ListChecks,
   Network,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Waypoints,
 } from "lucide-react";
@@ -24,9 +25,11 @@ import {
   PerformancePanel,
   RoutingSummary,
   SelfHealingPanel,
+  SurvivabilityPanel,
   TopologyPanel,
 } from "@/components/network/panels";
 import { routeLabel } from "@/lib/network/engine";
+import { connectivityReport } from "@/lib/network/survivability";
 
 export const Route = createFileRoute("/simulator")({
   head: () => ({
@@ -56,6 +59,7 @@ const SECTIONS = [
   { id: "health", label: "Network Health", icon: Activity },
   { id: "performance", label: "Performance", icon: BarChart3 },
   { id: "healing", label: "Self-Healing Logs", icon: Sparkles },
+  { id: "survivability", label: "Survivability", icon: ShieldCheck },
 ] as const;
 
 type SectionId = (typeof SECTIONS)[number]["id"];
@@ -80,6 +84,14 @@ function SimulatorPage() {
   const [section, setSection] = useState<SectionId>("topology");
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [selectedLink, setSelectedLink] = useState<string | null>(null);
+  const [overlayPaths, setOverlayPaths] = useState<string[][]>([]);
+  const survivability = useMemo(
+    () => connectivityReport(sim.graph, sim.source, sim.destination),
+    [sim.graph, sim.source, sim.destination],
+  );
+  useEffect(() => {
+    if (section !== "survivability") setOverlayPaths([]);
+  }, [section]);
 
   const stateColor =
     sim.health.state === "Healthy"
@@ -155,6 +167,9 @@ function SimulatorPage() {
                   graph={sim.graph}
                   activePath={sim.activePath}
                   backupPaths={sim.plan.backups.map((b) => b.path)}
+                  overlayPaths={overlayPaths}
+                  criticalNodes={section === "survivability" ? survivability.articulationPoints : []}
+                  criticalLinks={section === "survivability" ? survivability.bridges : []}
                   source={sim.source}
                   destination={sim.destination}
                   selectedNode={selectedNode}
@@ -203,6 +218,9 @@ function SimulatorPage() {
             {section === "health" && <HealthPanel sim={sim} />}
             {section === "performance" && <PerformancePanel sim={sim} />}
             {section === "healing" && <SelfHealingPanel sim={sim} />}
+            {section === "survivability" && (
+              <SurvivabilityPanel sim={sim} report={survivability} onOverlay={setOverlayPaths} />
+            )}
           </section>
 
           <section className="w-full xl:w-80">

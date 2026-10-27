@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -32,6 +32,13 @@ import type { Simulator } from "@/hooks/useSimulator";
 import { HEAL_STEPS } from "@/hooks/useSimulator";
 import { comparisonRun, routeLabel, type AlgorithmName } from "@/lib/network/engine";
 import { failurePrediction } from "@/lib/network/health";
+import {
+  augmentationSuggestions,
+  maxReliabilityPair,
+  protectionSchemeRows,
+  suurballePaths,
+  type SurvivabilityReport,
+} from "@/lib/network/survivability";
 
 export function SectionTitle({ title, hint }: { title: string; hint?: string }) {
   return (
@@ -612,6 +619,148 @@ export function RoutingSummary({ sim }: { sim: Simulator }) {
           {!plan.backups.length && <p className="text-[11px] text-muted-foreground">No backup routes available.</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Survivability (Kuipers 2012 research module) ---------------- */
+const PAIR_MODES: { id: "link" | "node" | "reliability"; label: string; hint: string }[] = [
+  { id: "link", label: "Link-disjoint", hint: "Suurballe — two min-cost paths sharing no links" },
+  { id: "node", label: "Node-disjoint", hint: "Suurballe on the node-split graph — no shared routers" },
+  { id: "reliability", label: "Max reliability", hint: "She et al. weights w = −ln(1−p) — most probable surviving pair" },
+];
+
+function SurvMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded border border-border p-2 text-center">
+      <div className="font-mono text-lg">{value}</div>
+      <div className="text-[10px] text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+export function SurvivabilityPanel({
+  sim,
+  report,
+  onOverlay,
+}: {
+  sim: Simulator;
+  report: SurvivabilityReport;
+  onOverlay: (paths: string[][]) => void;
+}) {
+  const [mode, setMode] = useState<"link" | "node" | "reliability">("link");
+  const pair = useMemo(
+    () =>
+      mode === "reliability"
+        ? maxReliabilityPair(sim.graph, sim.source, sim.destination)
+        : suurballePaths(sim.graph, sim.source, sim.destination, mode),
+    [sim.graph, sim.source, sim.destination, mode],
+  );
+  const aug = useMemo(() => augmentationSuggestions(sim.graph), [sim.graph]);
+  const schemes = protectionSchemeRows();
+
+  return (
+    <div className="space-y-4">
+      <SectionTitle title="Survivability Analysis" hint="Kuipers (2012): connectivity, augmentation and path protection." />
+
+      <div className="grid grid-cols-4 gap-2">
+        <SurvMetric label="λ link-conn." value={report.linkConnectivity} />
+        <SurvMetric label="κ node-conn." value={report.nodeConnectivity} />
+        <SurvMetric label="α algebraic" value={report.algebraicConnectivity} />
+        <SurvMetric label="δ min degree" value={report.minDegree} />
+      </div>
+      <p className="text-[11px] text-muted-foreground">Kuipers inequality: α ≤ κ ≤ λ ≤ δ</p>
+
+      <div className="rounded border border-border p-2 text-[11px]">
+        <div className="flex justify-between"><span className="text-muted-foreground">Components</span><span className="font-mono">{report.components}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Bridges (critical links)</span><span className="font-mono">{report.bridges.length}</span></div>
+        <div className="flex justify-between"><span className="text-muted-foreground">Articulation points</span><span className="font-mono">{report.articulationPoints.join(", ") || "none"}</span></div>
+      </div>
+
+      <div className="rounded border border-border p-2 text-[11px]">
+        <div className="mb-1 font-medium">Menger's theorem — {sim.source} → {sim.destination}</div>
+        {report.menger ? (
+          <>
+            <div className="font-mono">{report.menger.disjointPairs} link-disjoint paths · min cut {report.menger.cutLinks.length} links</div>
+            {report.menger.cutLinks.length > 0 && (
+              <div className="mt-1 font-mono text-warning">{report.menger.cutLinks.join(", ")}</div>
+            )}
+          </>
+        ) : (
+          <div className="text-muted-foreground">Pick source and destination to compute the min cut.</div>
+        )}
+      </div>
+
+      <Separator />
+      <SectionTitle title="Disjoint Path Protection" hint="Two disjoint paths so traffic survives any single failure (1:1 / 1+1)." />
+      <div className="flex flex-wrap gap-1.5">
+        {PAIR_MODES.map((m) => (
+          <Button key={m.id} size="sm" variant={mode === m.id ? "default" : "secondary"} onClick={() => setMode(m.id)}>
+            {m.label}
+          </Button>
+        ))}
+      </div>
+      <div className="rounded border border-border p-2 text-[11px]">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-medium">{PAIR_MODES.find((m) => m.id === mode)?.hint}</span>
+          <StatusBadge ok={pair.exists} labelOk="PAIR FOUND" labelNo="NO PAIR" />
+        </div>
+        <dl className="mt-2 space-y-1 font-mono">
+          <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Path 1</dt><dd className="text-right text-active-route">{routeLabel(pair.path1)}</dd></div>
+          <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Path 2</dt><dd className="text-right text-backup-route">{routeLabel(pair.path2)}</dd></div>
+          <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Costs</dt><dd>{Number.isFinite(pair.cost1) ? pair.cost1 : "∞"} / {Number.isFinite(pair.cost2) ? pair.cost2 : "∞"}</dd></div>
+          <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Pair reliability</dt><dd>{pair.pairReliability}%</dd></div>
+        </dl>
+        {pair.sharedRiskGroups.length > 0 && (
+          <div className="mt-2 text-warning">SRLG risk: both paths use risk group {pair.sharedRiskGroups.join(", ")}</div>
+        )}
+        <div className="mt-2 flex gap-2">
+          <Button size="sm" disabled={!pair.exists} onClick={() => onOverlay([pair.path1, pair.path2])}>Show on graph</Button>
+          <Button size="sm" variant="secondary" onClick={() => onOverlay([])}>Clear</Button>
+        </div>
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="text-[11px]">Scheme</TableHead>
+            <TableHead className="text-[11px]">Capacity overhead</TableHead>
+            <TableHead className="text-[11px]">Recovery time</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {schemes.map((r) => (
+            <TableRow key={r.scheme}>
+              <TableCell className="py-1.5 text-[11px]">{r.scheme}</TableCell>
+              <TableCell className="py-1.5 text-[11px] text-muted-foreground">{r.capacityOverhead}</TableCell>
+              <TableCell className="py-1.5 text-[11px] text-muted-foreground">{r.recoveryTime}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
+      <Separator />
+      <SectionTitle
+        title="Augmentation Advisor"
+        hint={`Eswaran–Tarjan: minimal new links for 2-link-connectivity. Current λ = ${aug.currentLambda}.`}
+      />
+      {aug.goalAchieved ? (
+        <div className="rounded border border-healthy/40 p-2 text-[11px] text-healthy">
+          Network is 2-link-connected — no augmentation needed.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {aug.suggestions.map((s, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 rounded border border-border p-2 text-[11px]">
+              <div>
+                <div className="font-mono">{s.a} ↔ {s.b}</div>
+                <div className="text-muted-foreground">{s.reason}</div>
+              </div>
+              <Button size="sm" onClick={() => sim.addLink(s.a, s.b)}>Add link</Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
