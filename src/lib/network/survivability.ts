@@ -424,12 +424,13 @@ export function suurballePaths(
     res: number;
   }
   const arcs: Arc[] = [];
+  const costs: number[] = [];
   const addArc = (a: number, b: number, cost: number) => {
     arcs.push({ a, b, cap: 1, res: 1 }); // forward (index even)
     arcs.push({ a: b, b: a, cap: 0, res: 0 }); // residual reverse (cost −cost)
+    costs.push(cost);
     costs.push(-cost);
   };
-  const costs: number[] = [];
   if (mode === "node") {
     for (let i = 0; i < n; i++) {
       if (i !== si && i !== ti) {
@@ -470,7 +471,7 @@ export function suurballePaths(
         }
       }
     }
-    return dist[t] === Infinity ? null : prevArc;
+    return dist[ti] === Infinity ? null : prevArc;
   };
 
   let units = 0;
