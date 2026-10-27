@@ -14,6 +14,12 @@ interface Props {
   selectedLink?: string | null;
   onNodeClick?: (id: string) => void;
   onLinkClick?: (id: string) => void;
+  /** Survivability overlay: disjoint path pairs drawn as dashed polylines. */
+  overlayPaths?: string[][];
+  /** Articulation points (routers whose removal disconnects the graph). */
+  criticalNodes?: string[];
+  /** Bridges (links whose removal disconnects the graph). */
+  criticalLinks?: string[];
 }
 
 const nodeColor = (status: string) =>
@@ -35,6 +41,9 @@ export function NetworkGraphView({
   selectedLink,
   onNodeClick,
   onLinkClick,
+  overlayPaths = [],
+  criticalNodes = [],
+  criticalLinks = [],
 }: Props) {
   const activeLinks = useMemo(() => new Set(pathLinkIds(graph, activePath)), [graph, activePath]);
   const backupLinks = useMemo(
@@ -91,6 +100,51 @@ export function NetworkGraphView({
         );
       })}
 
+      {criticalLinks.map((id) => {
+        const l = graph.links.find((x) => x.id === id);
+        const a = l && pos(l.a);
+        const b = l && pos(l.b);
+        if (!l || !a || !b) return null;
+        return (
+          <line
+            key={`crit-${id}`}
+            x1={a.x}
+            y1={a.y}
+            x2={b.x}
+            y2={b.y}
+            stroke="var(--warning)"
+            strokeWidth={0.85}
+            strokeDasharray="1.1 0.9"
+            strokeLinecap="round"
+            pointerEvents="none"
+            opacity={0.95}
+          />
+        );
+      })}
+
+      {overlayPaths.map((p, i) => {
+        const pts = p
+          .map((id) => pos(id))
+          .filter((n): n is NonNullable<typeof n> => !!n)
+          .map((n) => `${n.x},${n.y}`)
+          .join(" ");
+        if (!pts) return null;
+        return (
+          <polyline
+            key={`overlay-${i}`}
+            points={pts}
+            fill="none"
+            stroke={i % 2 === 0 ? "var(--chart-1)" : "var(--chart-3)"}
+            strokeWidth={0.9}
+            strokeDasharray="2 1.2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            pointerEvents="none"
+            opacity={0.95}
+          />
+        );
+      })}
+
       {graph.nodes.map((n) => {
         const risk = failurePrediction(n);
         const isSrc = n.id === source;
@@ -133,6 +187,24 @@ export function NetworkGraphView({
               </text>
             )}
           </g>
+        );
+      })}
+
+      {criticalNodes.map((id) => {
+        const n = pos(id);
+        if (!n) return null;
+        return (
+          <circle
+            key={`critn-${id}`}
+            cx={n.x}
+            cy={n.y}
+            r={4.1}
+            fill="none"
+            stroke="var(--warning)"
+            strokeWidth={0.5}
+            strokeDasharray="1 0.8"
+            pointerEvents="none"
+          />
         );
       })}
     </svg>
