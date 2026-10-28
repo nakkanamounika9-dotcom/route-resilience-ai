@@ -32,7 +32,12 @@ export interface NetworkGraph {
 
 export const linkId = (a: string, b: string) => [a, b].sort().join("-");
 
-export function makeNode(id: string, x: number, y: number): RouterNode {
+export function makeNode(
+  id: string,
+  x: number,
+  y: number,
+  overrides: Partial<RouterNode> = {},
+): RouterNode {
   return {
     id,
     x,
@@ -42,8 +47,13 @@ export function makeNode(id: string, x: number, y: number): RouterNode {
     packetLoss: Math.round(Math.random() * 5) / 10,
     congestion: 10 + Math.round(Math.random() * 25),
     latencyTrend: "stable",
+    ...overrides,
   };
 }
+
+/** Stable pseudo-random value from a string (for deterministic demo data). */
+const stableHash = (s: string) =>
+  [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 100000, 7);
 
 export function makeLink(
   a: string,
@@ -80,7 +90,14 @@ export function defaultTopology(): NetworkGraph {
     R9: [80, 86],
     R10: [92, 48],
   };
-  const nodes = Object.entries(coords).map(([id, [x, y]]) => makeNode(id, x, y));
+  // Deterministic telemetry so SSR and the client render identically.
+  const nodes = Object.entries(coords).map(([id, [x, y]]) =>
+    makeNode(id, x, y, {
+      cpu: 20 + (stableHash(id) % 31),
+      packetLoss: (stableHash(id) % 6) / 10,
+      congestion: 10 + (stableHash(id) % 26),
+    }),
+  );
 
   const raw: [string, string, number, number, number?][] = [
     ["R1", "R2", 8, 100],
@@ -100,9 +117,15 @@ export function defaultTopology(): NetworkGraph {
     ["R4", "R5", 16, 45],
     ["R8", "R9", 7, 60],
   ];
-  const links = raw.map(([a, b, l, bw, group]) =>
-    makeLink(a, b, l, bw, group == null ? {} : { riskGroup: group }),
-  );
+  const links = raw.map(([a, b, l, bw, group]) => {
+    const h = stableHash(a + b);
+    return makeLink(a, b, l, bw, {
+      packetLoss: (h % 4) / 10,
+      reliability: 99 + (h % 10) / 10,
+      congestion: 8 + (h % 23),
+      ...(group == null ? {} : { riskGroup: group }),
+    });
+  });
   return { nodes, links };
 }
 
