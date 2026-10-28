@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import {
   Activity,
+  ArrowLeftRight,
   ArrowRight,
   BrainCircuit,
   GitBranch,
   Layers,
+  Network,
+  PlusCircle,
   Radar,
   ShieldCheck,
   Split,
@@ -42,6 +45,9 @@ const FEATURES = [
   { icon: Radar, title: "Failure Prediction", text: "Telemetry-driven risk scoring before components fully fail." },
   { icon: Split, title: "Route Diversity", text: "Penalises backups sharing critical routers or links." },
   { icon: GitBranch, title: "Automatic Self-Healing", text: "Detect, re-plan, validate and reroute with minimal downtime." },
+  { icon: Network, title: "Survivability Analysis", text: "Menger connectivity λ/κ via max-flow, bridges, articulation points and algebraic connectivity α(G)." },
+  { icon: ArrowLeftRight, title: "Disjoint Path Protection", text: "Suurballe's link/node-disjoint backup pairs with max-reliability weights and SRLG checks." },
+  { icon: PlusCircle, title: "Augmentation Advisor", text: "Eswaran–Tarjan suggestions for the minimal new links to reach 2-link-connectivity." },
 ];
 
 function Landing() {
@@ -122,6 +128,41 @@ function Landing() {
               <p className="mt-1.5 text-xs text-muted-foreground">{f.text}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section id="research" className="mx-auto max-w-6xl px-6 pb-24">
+        <h2 className="text-xl font-semibold">Built on survivability research</h2>
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+          The survivability engine implements F. A. Kuipers, "An Overview of Algorithms for Network
+          Survivability" (ISRN Communications and Networking, 2012) — the three pillars of keeping a
+          network alive after failures.
+        </p>
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="panel p-5">
+            <Network className="h-5 w-5 text-primary" />
+            <h3 className="mt-3 text-sm font-semibold">Network connectivity</h3>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Menger's theorem via max-flow min-cut: λ(G) and κ(G) disjoint-path counts, bridge and
+              articulation-point detection, plus the algebraic connectivity α(G) from the Laplacian spectrum.
+            </p>
+          </div>
+          <div className="panel p-5">
+            <PlusCircle className="h-5 w-5 text-primary" />
+            <h3 className="mt-3 text-sm font-semibold">Network augmentation</h3>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              An Eswaran–Tarjan-style advisor that suggests the minimal set of new links needed to make
+              the topology 2-link-connected, eliminating every single point of failure.
+            </p>
+          </div>
+          <div className="panel p-5">
+            <ArrowLeftRight className="h-5 w-5 text-primary" />
+            <h3 className="mt-3 text-sm font-semibold">Path protection</h3>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Suurballe's algorithm finds two link- or node-disjoint min-cost paths; max-reliability pairs
+              use w = −ln(1−p) weights, and SRLG checks catch backups sharing the same fiber duct.
+            </p>
+          </div>
         </div>
       </section>
 
