@@ -40,9 +40,7 @@ export function useSimulator() {
   const [algorithm, setAlgorithm] = useState<AlgorithmName>("Dijkstra");
   const [beamWidth, setBeamWidth] = useState(3);
   const [constraints, setConstraints] = useState<Constraints>(defaultConstraints);
-  const [logs, setLogs] = useState<LogEntry[]>([
-    { time: stamp(), message: "Network monitoring started", level: "info" },
-  ]);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [healStep, setHealStep] = useState(-1);
   const [healing, setHealing] = useState(false);
   const [autoHeal, setAutoHeal] = useState(true);
@@ -52,6 +50,11 @@ export function useSimulator() {
 
   const log = useCallback((message: string, level: LogEntry["level"] = "info") => {
     setLogs((l) => [...l.slice(-199), { time: stamp(), message, level }]);
+  }, []);
+
+  // Seed the first log line after hydration (avoids an SSR/client timestamp mismatch).
+  useEffect(() => {
+    setLogs((l) => (l.length ? l : [{ time: stamp(), message: "Network monitoring started", level: "info" }]));
   }, []);
 
   const plan: PlanResult = useMemo(
