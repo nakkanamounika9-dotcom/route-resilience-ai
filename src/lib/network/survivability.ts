@@ -194,6 +194,7 @@ export function linkDisjointInfo(
     const b = idx.get(l.b)!;
     arcLink.push({ id: l.id, a, b });
     arcs.push([a, b, 1]);
+    arcs.push([b, a, 1]); // undirected: the link is traversable both ways
   }
   const { flow, reachable } = maxFlow(g.nodes.length, arcs, si, ti);
   const cutLinks = arcLink.filter((e) => reachable[e.a] !== reachable[e.b]).map((e) => e.id);
@@ -544,7 +545,7 @@ export function suurballePaths(
     cost1: p1.length ? Math.round(linkDisjointCost(g, p1) * 10) / 10 : Infinity,
     cost2: p2.length ? Math.round(linkDisjointCost(g, p2) * 10) / 10 : Infinity,
     pairReliability: exists
-      ? Math.round((q1 + q2 + q1 * q2) * 1000) / 10
+      ? Math.round((q1 + q2 - q1 * q2) * 1000) / 10 // 1 − (1−q1)(1−q2)
       : p1.length > 1
         ? Math.round(q1 * 1000) / 10
         : 0,
