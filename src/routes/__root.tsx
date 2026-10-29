@@ -3,6 +3,7 @@ import {
   Outlet,
   Link,
   createRootRouteWithContext,
+  lazyRouteComponent,
   useRouter,
   HeadContent,
   Scripts,
@@ -110,7 +111,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
-  errorComponent: ErrorComponent,
+  errorComponent: lazyRouteComponent(() => Promise.resolve({ default: ErrorComponent })),
 });
 
 function RootShell({ children }: { children: ReactNode }) {
