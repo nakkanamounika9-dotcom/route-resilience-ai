@@ -17,6 +17,7 @@ import {
   type NetworkGraph,
   isLinkUsable,
   linkCost,
+  linkId,
   pathLinks,
 } from "./topology";
 
@@ -600,16 +601,29 @@ export function augmentationSuggestions(g: NetworkGraph): AugmentationResult {
   const comps = connectedComponents(g);
   const suggestions: AugmentationSuggestion[] = [];
 
+  const existingLink = (a: string, b: string) => g.links.some((l) => l.id === linkId(a, b));
+  const isHealthy = (id: string) => g.nodes.find((n) => n.id === id)?.status !== "failed";
+  /** Healthy node candidates of a block, highest usable degree first. */
+  const candidates = (block: string[]): string[] =>
+    block.filter(isHealthy).sort((x, y) => usableDegree(g, y) - usableDegree(g, x));
+  /** First healthy, not-already-linked pair between two blocks. */
+  const pickPair = (as: string[], bs: string[]): [string, string] | null => {
+    for (const a of as) for (const b of bs) if (a !== b && !existingLink(a, b)) return [a, b];
+    return null;
+  };
+  const push = (pair: [string, string] | null, reason: string) => {
+    if (!pair) return;
+    if (suggestions.some((s2) => (s2.a === pair[0] && s2.b === pair[1]) || (s2.a === pair[1] && s2.b === pair[0]))) return;
+    suggestions.push({ a: pair[0], b: pair[1], reason });
+  };
+
   if (comps.length > 1) {
-    const reps = comps.map((c) =>
-      c.reduce((best, id) => (usableDegree(g, id) > usableDegree(g, best) ? id : best), c[0]!),
-    );
-    for (let i = 1; i < reps.length; i++) {
-      suggestions.push({
-        a: reps[i - 1]!,
-        b: reps[i]!,
-        reason: `Reconnect isolated component ${i + 1} to the rest of the network`,
-      });
+    const cands = comps.map(candidates);
+    // Every component needs at least one healthy router to be reconnected.
+    if (cands.every((c) => c.length > 0)) {
+      for (let i = 1; i < cands.length; i++) {
+        push(pickPair(cands[i - 1]!, cands[i]!), `Reconnect isolated component ${i + 1} to the rest of the network`);
+      }
     }
   }
 
@@ -640,7 +654,6 @@ export function augmentationSuggestions(g: NetworkGraph): AugmentationResult {
     }
     // bridge tree degree per block
     const blockDegree = new Map<number, number>();
-    const blockBridge = new Map<number, string>();
     for (const id of bridges) {
       const l = g.links.find((x) => x.id === id);
       if (!l) continue;
@@ -648,41 +661,20 @@ export function augmentationSuggestions(g: NetworkGraph): AugmentationResult {
       const bb = blockOf.get(l.b)!;
       blockDegree.set(ba, (blockDegree.get(ba) ?? 0) + 1);
       blockDegree.set(bb, (blockDegree.get(bb) ?? 0) + 1);
-      blockBridge.set(ba, id);
-      blockBridge.set(bb, id);
     }
     const leaves = [...blockDegree.entries()]
       .filter(([, d]) => d === 1)
       .map(([b]) => b)
       .sort((x, y) => x - y);
-    const rep = (b: number): string => {
-      const bridgeId = blockBridge.get(b)!;
-      const l = g.links.find((x) => x.id === bridgeId)!;
-      return blockOf.get(l.a) === b ? l.a : l.b;
-    };
+    const pairLeaf = (x: number, y: number) =>
+      push(
+        pickPair(candidates(blockNodes[x] ?? []), candidates(blockNodes[y] ?? [])),
+        "Bridge-tree leaf pairing — removes a single point of failure (Eswaran–Tarjan)",
+      );
     const r = leaves.length;
     const m = Math.floor(r / 2);
-    for (let i = 0; i < m; i++) {
-      const a = rep(leaves[i]!);
-      const b = rep(leaves[i + m]!);
-      if (a === b) continue;
-      suggestions.push({
-        a,
-        b,
-        reason: `Bridge-tree leaf pairing — removes a single point of failure (Eswaran–Tarjan)`,
-      });
-    }
-    if (r > 2 && r % 2 === 1) {
-      const a = rep(leaves[m - 1]!);
-      const b = rep(leaves[r - 1]!);
-      if (a !== b && !suggestions.some((s2) => (s2.a === a && s2.b === b) || (s2.a === b && s2.b === a))) {
-        suggestions.push({
-          a,
-          b,
-          reason: "Bridge-tree leaf pairing — removes a single point of failure (Eswaran–Tarjan)",
-        });
-      }
-    }
+    for (let i = 0; i < m; i++) pairLeaf(leaves[i]!, leaves[i + m]!);
+    if (r > 2 && r % 2 === 1) pairLeaf(leaves[m - 1]!, leaves[r - 1]!);
   }
 
   const report = connectivityReport(g, g.nodes[0]?.id ?? "", g.nodes[1]?.id ?? "");
