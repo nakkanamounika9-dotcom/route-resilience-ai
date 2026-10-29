@@ -17,6 +17,7 @@ import {
   type NetworkGraph,
   isLinkUsable,
   linkCost,
+  linkId,
   pathLinks,
 } from "./topology";
 
